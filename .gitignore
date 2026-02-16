@@ -3,6 +3,6 @@ keys/
 public_copy/
 .env
 node_modules/
-postgres/
-
+/postgres
+dist/
 /src/generated/prisma
