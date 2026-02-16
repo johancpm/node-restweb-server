@@ -1,4 +1,9 @@
+
 import {Request, Response} from 'express'
+import { prisma } from '../../data/postgres'
+import { json } from 'node:stream/consumers'
+import { CreateTodoDto } from '../../domain/dtos/todos/create-todo.dto'
+import { UpdateTodoDto } from '../../domain/dtos/todos/update-todo.dto'
 
 
 const todos = [
@@ -11,67 +16,80 @@ export class AppTodos {
 
     constructor(){}
 
-public getTodos = (req:Request, res:Response) => {
-    res.json(todos)           
+public getTodos = async(req:Request, res:Response) => {
+
+    const getAllTodos = await prisma.todo.findMany()
+
+    res.json(getAllTodos)           
 }
 
-public getTodosId = (req:Request, res:Response) => {
+public getTodosId = async(req:Request, res:Response) => {
     const id = +req.params.id!;
     if(isNaN(id)) return res.status(400).json({err: `El id ingresado no es un numero`})
-   const getTodoId = todos.find( todo => todo.id == id);
+     const getTodoId = await prisma.todo.findUnique({
+          where: {id}
+     });
 
     (getTodoId)
     ? res.json(getTodoId)
     : res.status(404).json({err: `el id ${id} no se encuentra`})          
 }
 
-public createTodo = (req: Request, res: Response) => {
-     
-    const {text} = req.body;
+ public createTodo = async (req: Request, res: Response) => {
+      
+    const [error, createTodoDto] = CreateTodoDto.create({...req.body})
+    if(error) return res.status(400).json({error});
 
-    const newTodo = {
-        id: todos.length + 1,
-        text: text,
-        createdAt: null
-    }
-
-    todos.push(newTodo);
+    const newTodo = await prisma.todo.create({
+        data:  createTodoDto!
+    })
 
     res.json(newTodo);
 }
 
-public updateTodo = (req: Request, res: Response) => {
+public updateTodo = async(req: Request, res: Response) => {
     const id = +req.params.id!;
-    if(isNaN(id)) return res.status(400).json({err: 'El id ingresado no es un numero'});
+    const [error, updateTodoDto] = UpdateTodoDto.updateTodo({id, ...req.body})
+    if(error) return res.status(400).json({error})
+    
+    const getTodoBd = await prisma.todo.findFirst({
+        where: {id}
+    })    
 
-    const getTodo = todos.find( todo => todo.id == id);
-    if(!getTodo) return res.status(404).json({err: `El objeto con id ${id} no se encuentra`})
+  const newTodo = await prisma.todo.update({
+        where:{
+            id
+        },
+        data: updateTodoDto!.values
+    })    
 
-    const {text, createdAt} = req.body;
+    /* const {text, createdAt} = req.body;
     getTodo.text = text || getTodo.text;
 
     (createdAt === null) 
     ? getTodo.createdAt = null
-    : getTodo.createdAt = new Date(createdAt || getTodo.createdAt)
+    : getTodo.createdAt = new Date(createdAt || getTodo.createdAt) */
 
 
-    res.json(getTodo)
+    res.json(newTodo)
 
 }
 
-public deleteTodo = (req: Request, res: Response) => {
+public deleteTodo = async(req: Request, res: Response) => {
     const id = +req.params.id!;
     if(isNaN(id)) return res.status(400).json({err: 'El id ingresado no es un numero'});
 
-    const todoDelete = todos.find(tod => tod.id == id);
+    const todoDelete = await prisma.todo.delete({
+        where: {id}
+    });
     
     if(!todoDelete) return res.status(400).json({err: `El elemto con id ${id} no existe`});
 
     
-    todos.splice(todos.indexOf(todoDelete),1) 
+    /* todos.splice(todos.indexOf(todoDelete),1)  */
     
 
-    res.json(todos)
+    res.json(todoDelete)
 
 }
 
